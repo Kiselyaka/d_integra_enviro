@@ -1,0 +1,106 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
+      POSTGRES_DB: postgres
+      INTEGRATION_DB_PASSWORD: "${INTEGRATION_DB_PASSWORD:?Set INTEGRATION_DB_PASSWORD in .env}"
+      SHOP_DB_PASSWORD: "${SHOP_DB_PASSWORD:?Set SHOP_DB_PASSWORD in .env}"
+      CRM_DB_PASSWORD: "${CRM_DB_PASSWORD:?Set CRM_DB_PASSWORD in .env}"
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init-databases.sh:/docker-entrypoint-initdb.d/01-init-databases.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  kafka:
+    image: apache/kafka:3.9.2
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: INTERNAL://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    ports:
+      - "${KAFKA_PORT:-9092}:9094"
+
+  integration-api:
+    build:
+      context: ../integration-platform
+      dockerfile: Dockerfile.api
+    environment:
+      DATABASE_URL: "postgresql+psycopg://integration_user:${INTEGRATION_DB_PASSWORD:?Set INTEGRATION_DB_PASSWORD in .env}@postgres:5432/integration_db"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+
+  delivery-service:
+    build:
+      context: ../integration-platform
+      dockerfile: Dockerfile.delivery
+    environment:
+      DATABASE_URL: "postgresql+psycopg://integration_user:${INTEGRATION_DB_PASSWORD:?Set INTEGRATION_DB_PASSWORD in .env}@postgres:5432/integration_db"
+      LOG_LEVEL: INFO
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  mini-shop:
+    build:
+      context: ../demo-business-systems/mini-shop
+    environment:
+      DATABASE_URL: "postgresql+psycopg://shop_user:${SHOP_DB_PASSWORD:?Set SHOP_DB_PASSWORD in .env}@postgres:5432/shop_db"
+      INTEGRATION_PLATFORM_URL: http://integration-api:8000
+      LOG_LEVEL: INFO
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  crm:
+    build:
+      context: ../demo-business-systems/crm
+    environment:
+      DATABASE_URL: "postgresql+psycopg://crm_user:${CRM_DB_PASSWORD:?Set CRM_DB_PASSWORD in .env}@postgres:5432/crm_db"
+      LOG_LEVEL: INFO
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  admin-ui:
+    build:
+      context: ../integration-platform/admin-ui
+    environment:
+      VITE_INTEGRATION_API_URL: http://localhost:8000
+    ports:
+      - "5173:5173"
+    depends_on:
+      integration-api:
+        condition: service_started
+
+volumes:
+  postgres_data:

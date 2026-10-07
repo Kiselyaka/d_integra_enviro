@@ -44,6 +44,7 @@ services:
     environment:
       DATABASE_URL: "postgresql+psycopg://integration_user:${INTEGRATION_DB_PASSWORD:?Set INTEGRATION_DB_PASSWORD in .env}@postgres:5432/integration_db"
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      CRM_BASE_URL: http://crm:8000
       LOG_LEVEL: INFO
     ports:
       - "8000:8000"
@@ -86,7 +87,7 @@ services:
       DATABASE_URL: "postgresql+psycopg://crm_user:${CRM_DB_PASSWORD:?Set CRM_DB_PASSWORD in .env}@postgres:5432/crm_db"
       LOG_LEVEL: INFO
     ports:
-      - "8003:8003"
+      - "8003:8000"
     depends_on:
       postgres:
         condition: service_healthy

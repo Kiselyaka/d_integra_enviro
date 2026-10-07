@@ -41,9 +41,20 @@ make logs     # follow logs
 make down     # stop containers, preserve volumes
 make reset    # remove volumes and start a clean environment
 make test     # run platform, Mini Shop, and CRM pytest suites
+make test-e2e # run the M1 Mini Shop → Platform → CRM smoke scenario
 ```
 
 Equivalent shell scripts are available in `scripts/`.
+
+## Milestone 1 end-to-end check
+
+After `make up` has completed and `SKU-001` is available, run:
+
+```sh
+make test-e2e
+```
+
+The script creates a unique demo order through Mini Shop, asserts its `Message` and route result in `integration_db`, asserts the Customer, Deal and position in `crm_db`, then sends the same external event again. It verifies that the duplicate returns `already_accepted` without adding another Message, route result, Customer or Deal. The test adds demo data to local Docker volumes; use `make reset` only when a clean local environment is wanted.
 
 ## Service URLs
 

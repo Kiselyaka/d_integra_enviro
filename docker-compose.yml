@@ -36,6 +36,42 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
     ports:
       - "${KAFKA_PORT:-9092}:9094"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  kafka-init:
+    image: apache/kafka:3.9.2
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-ec"]
+    # A list keeps the whole script as Bash's single -c argument.  With a
+    # scalar Compose split it into words and Bash attempted to execute
+    # "topic" as the script.
+    command:
+      - >-
+        for topic in integration.delivery.requested integration.delivery.completed integration.delivery.dead_lettered; do
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic "$$topic" --partitions 1 --replication-factor 1;
+        done
+
+  # M5.5 development/diagnostic tooling only. It is deliberately optional and
+  # read-only: no Platform runtime component depends on this container.
+  kafka-ui:
+    image: ghcr.io/kafbat/kafka-ui:latest
+    profiles: ["tooling"]
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local-development
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_READONLY: "true"
+      DYNAMIC_CONFIG_ENABLED: "false"
+    ports:
+      - "127.0.0.1:${KAFKA_UI_PORT:-8085}:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
 
   integration-api:
     build:
@@ -44,6 +80,7 @@ services:
     environment:
       DATABASE_URL: "postgresql+psycopg://integration_user:${INTEGRATION_DB_PASSWORD:?Set INTEGRATION_DB_PASSWORD in .env}@postgres:5432/integration_db"
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_OUTBOX_POLL_INTERVAL_SECONDS: 1
       CRM_BASE_URL: http://crm:8000
       WAREHOUSE_BASE_URL: http://host.docker.internal:8081/WarehouseDemo_Base
       MINI_SHOP_BASE_URL: http://mini-shop:8002
@@ -60,7 +97,9 @@ services:
       postgres:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
 
   delivery-service:
     build:
@@ -68,6 +107,8 @@ services:
       dockerfile: Dockerfile.delivery
     environment:
       DATABASE_URL: "postgresql+psycopg://integration_user:${INTEGRATION_DB_PASSWORD:?Set INTEGRATION_DB_PASSWORD in .env}@postgres:5432/integration_db"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_OUTBOX_POLL_INTERVAL_SECONDS: 1
       DELIVERY_TIMEOUT_SECONDS: 5
       DELIVERY_POLL_INTERVAL_SECONDS: 1
       DELIVERY_STALE_PROCESSING_TIMEOUT_SECONDS: 60
@@ -77,6 +118,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      integration-api:
+        condition: service_started
 
   mini-shop:
     build:

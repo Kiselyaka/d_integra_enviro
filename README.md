@@ -67,5 +67,33 @@ The script creates a unique demo order through Mini Shop, asserts its `Message` 
 | Admin UI | http://localhost:5173 |
 | PostgreSQL | `localhost:5433` |
 | Kafka | `localhost:9092` |
+| Kafka UI (M5.5, optional) | http://localhost:8085 |
 
-Warehouse 1C remains outside Docker Compose for Milestone 0. Kafka is available as infrastructure only; no consumer or delivery pipeline is implemented yet.
+Warehouse 1C remains outside Docker Compose and is published by local Apache.
+Containers reach it through `host.docker.internal:8081`; keep Apache/Laragon
+and the published 1C infobase running for Warehouse E2E scenarios.
+
+## M5.5 Kafka Runtime Visualization
+
+Kafka UI is optional **development/diagnostic tooling**, not Platform Admin UI
+and not a runtime dependency. It is isolated behind the Compose `tooling`
+profile; stopping it cannot affect Platform processing.
+
+Start it after the normal environment is running:
+
+```sh
+docker compose --profile tooling up -d kafka-ui
+```
+
+Open [http://localhost:8085](http://localhost:8085). The configured local
+cluster is read-only and exposes the M5 topics, messages, partitions, consumer
+groups, offsets and lag:
+
+- `integration.delivery.requested`;
+- `integration.delivery.completed`;
+- `integration.delivery.dead_lettered`.
+
+Kafka UI is not a source of truth, does not call Platform domain APIs and must
+not be used for business operations. The future operational UI belongs to the
+M9 Operational Query API → M10 React Admin UI path; this container can then
+remain an engineering tool or be removed without changing the architecture.

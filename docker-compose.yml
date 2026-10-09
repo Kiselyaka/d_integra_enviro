@@ -81,6 +81,8 @@ services:
       DATABASE_URL: "postgresql+psycopg://integration_user:${INTEGRATION_DB_PASSWORD:?Set INTEGRATION_DB_PASSWORD in .env}@postgres:5432/integration_db"
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_OUTBOX_POLL_INTERVAL_SECONDS: 1
+      # M6 bootstrap defaults only. Existing Configuration Context rows are
+      # never overwritten and runtime route lookup reads PostgreSQL.
       CRM_BASE_URL: http://crm:8000
       WAREHOUSE_BASE_URL: http://host.docker.internal:8081/WarehouseDemo_Base
       MINI_SHOP_BASE_URL: http://mini-shop:8002

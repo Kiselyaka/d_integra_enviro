@@ -31,7 +31,9 @@ make up
 # or: docker compose up --build -d
 ```
 
-Integration API applies the shared platform migration while starting; Mini Shop and CRM apply their own migrations. Delivery Service shares `integration_db` with Integration API and therefore does not execute the same migration concurrently. PostgreSQL initialization creates separate databases `integration_db`, `shop_db`, and `crm_db`; there are no cross-database business queries.
+Integration API applies the shared platform migration and idempotently seeds missing M6 demo configuration while starting; Mini Shop and CRM apply their own migrations. Delivery Service shares `integration_db` with Integration API and therefore does not execute the same migration concurrently. PostgreSQL initialization creates separate databases `integration_db`, `shop_db`, and `crm_db`; there are no cross-database business queries.
+
+`CRM_BASE_URL`, `WAREHOUSE_BASE_URL`, `MINI_SHOP_BASE_URL` and retry environment values are bootstrap defaults for a fresh M6 database. Once configuration rows exist, runtime route resolution uses PostgreSQL data; it does not reread those values for every Delivery.
 
 ## Commands
 

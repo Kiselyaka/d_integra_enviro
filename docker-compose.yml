@@ -47,6 +47,12 @@ services:
       CRM_BASE_URL: http://crm:8000
       WAREHOUSE_BASE_URL: http://host.docker.internal:8081/WarehouseDemo_Base
       MINI_SHOP_BASE_URL: http://mini-shop:8002
+      DELIVERY_MAX_ATTEMPTS: 3
+      DELIVERY_RETRY_STRATEGY: exponential
+      DELIVERY_RETRY_INITIAL_DELAY_SECONDS: 5
+      DELIVERY_RETRY_MAX_DELAY_SECONDS: 300
+      DELIVERY_RETRY_MULTIPLIER: 2
+      DELIVERY_STALE_PROCESSING_TIMEOUT_SECONDS: 60
       LOG_LEVEL: INFO
     ports:
       - "8000:8000"
@@ -62,6 +68,9 @@ services:
       dockerfile: Dockerfile.delivery
     environment:
       DATABASE_URL: "postgresql+psycopg://integration_user:${INTEGRATION_DB_PASSWORD:?Set INTEGRATION_DB_PASSWORD in .env}@postgres:5432/integration_db"
+      DELIVERY_TIMEOUT_SECONDS: 5
+      DELIVERY_POLL_INTERVAL_SECONDS: 1
+      DELIVERY_STALE_PROCESSING_TIMEOUT_SECONDS: 60
       LOG_LEVEL: INFO
     ports:
       - "8001:8001"

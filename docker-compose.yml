@@ -53,7 +53,7 @@ services:
     # "topic" as the script.
     command:
       - >-
-        for topic in integration.delivery.requested integration.delivery.completed integration.delivery.dead_lettered; do
+        for topic in integration.delivery.requested integration.delivery.completed integration.delivery.dead_lettered integration.delivery.recovery.completed integration.delivery.recovery.dead_lettered; do
           /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic "$$topic" --partitions 1 --replication-factor 1;
         done
 
